@@ -75,7 +75,7 @@ module Database
         "mysql #{credentials} -D #{database} < #{file}"
       elsif postgresql?
         terminate_connection_sql = "SELECT pg_terminate_backend(pg_stat_activity.pid) FROM pg_stat_activity WHERE pg_stat_activity.datname = '#{database}' AND pid <> pg_backend_pid();"
-        "#{pgpass} psql -c \"#{terminate_connection_sql};\" #{credentials} #{database}; #{pgpass} dropdb #{credentials} #{database}; #{pgpass} createdb #{credentials} #{database}; #{pgpass} psql #{credentials} -d #{database} < #{file}"
+        "#{pgpass} psql -c \"#{terminate_connection_sql};\" #{credentials} #{database}; #{pgpass} dropdb #{credentials} #{database}; #{pgpass} createdb #{credentials} #{database}; #{pgpass} pg_restore --verbose --clean --no-acl --no-owner #{credentials} -d #{database} #{file}"
       end
     end
 
@@ -83,7 +83,7 @@ module Database
       if mysql?
         "--lock-tables=false #{dump_cmd_ignore_tables_opts} #{dump_cmd_ignore_data_tables_opts}"
       elsif postgresql?
-        "--no-acl --no-owner #{dump_cmd_ignore_tables_opts} #{dump_cmd_ignore_data_tables_opts}"
+        "--no-acl --no-owner -Fc #{dump_cmd_ignore_tables_opts} #{dump_cmd_ignore_data_tables_opts}"
       end
     end
 
@@ -238,6 +238,11 @@ module Database
       local_db.dump.upload
       remote_db.load(local_db.output_file, instance.fetch(:db_local_clean))
       File.unlink(local_db.output_file) if instance.fetch(:db_local_clean)
+    end
+
+    def backup(instance)
+      remote_db = Database::Remote.new(instance)
+      remote_db.dump
     end
 
     def local_to_local(instance, dump_file)
